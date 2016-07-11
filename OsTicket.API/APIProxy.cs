@@ -15,6 +15,9 @@ namespace OsTicket.API
     /// </summary>
     public class APIProxy
     {
+
+        public event EventHandler<RestResponseEventArgs> RequestCompleted;
+
         /// <summary>
         /// Construct an instance of the API Proxy class
         /// </summary>
@@ -100,6 +103,35 @@ namespace OsTicket.API
         }
 
         /// <summary>
+        /// Submits a ticket to the OsTicket instance asynchronously.
+        /// </summary>
+        /// <param name="ticket">The Ticket to Submit</param>
+        /// <returns>The generated ticket id.</returns>
+        public RestRequestAsyncHandle SubmitTicketAsync(Ticket ticket)
+        {
+            RestClient client = new RestClient(OsTicketUrl);
+
+            IRestRequest request = new RestRequest("/api/tickets.json", Method.POST);
+            request.JsonSerializer = new RestSharp.Serializers.NetwonsoftJsonSerializer();
+            request.AddHeader("X-API-KEY", ApiKey);
+            request.RequestFormat = DataFormat.Json;
+
+            TicketDTO ticketDTO = TicketDTO.CreateFromTicket(ticket);
+            JObject jo = JObject.FromObject(ticketDTO);
+            foreach (KeyValuePair<string, object> pair in ticket.ExtraFields)
+            {
+                jo.Add(pair.Key, JToken.FromObject(pair.Value));
+            }
+
+            request.AddBody(jo);
+
+            Action<IRestResponse> action = (restresponse) => { RequestCompleted?.Invoke(this, new RestResponseEventArgs(restresponse)); };
+
+            return client.ExecuteAsync(request,action);
+
+        }
+
+        /// <summary>
         /// The Root URL of the OsTicket instance (http://support.blah.com, not http://support.blah.com/api)
         /// </summary>
         public string OsTicketUrl
@@ -115,6 +147,32 @@ namespace OsTicket.API
         {
             get;
             private set;
+        }
+    }
+
+    public sealed class RestResponseEventArgs : EventArgs
+    {
+        public IRestResponse RestResponse { get; } = null;
+        public int TicketNumber { get; } = -1;
+        public bool HasError { get; } = false;
+        public string ErrorMessage { get; }
+        public RestResponseEventArgs()
+        {
+
+        }
+        public RestResponseEventArgs(IRestResponse value)
+        {
+            RestResponse = value;
+            if (RestResponse.StatusCode == HttpStatusCode.Created)
+            {
+                HasError = false;
+                TicketNumber = int.Parse(RestResponse.Content);
+            }
+            else
+            {
+                HasError = true;
+                ErrorMessage = RestResponse.Content;
+            }
         }
     }
 }
