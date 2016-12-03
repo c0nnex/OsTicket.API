@@ -8,7 +8,7 @@ namespace OsTicket.API
     /// <summary>
     /// Represents an Attachment in the OsTicket system
     /// </summary>
-    public class Attachment
+    public class Attachment 
     {
         /// <summary>
         /// The Filename of the Attachment

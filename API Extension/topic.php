@@ -11,8 +11,6 @@ require_once('../main.inc.php');
 require_once(INCLUDE_DIR.'class.api.php');
 require_once(INCLUDE_DIR.'class.topic.php');
 
-$controller = new ApiController();
-$controller->requireApiKey();
 
 $x = new Topic();
 echo json_encode($x->getHelpTopics(true));

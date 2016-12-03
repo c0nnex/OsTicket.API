@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using PropertyChanged;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +10,8 @@ namespace OsTicket.API
     /// <summary>
     /// Represents a Ticket in the OsTicket system
     /// </summary>
-    public class Ticket
+    [ImplementPropertyChanged]
+    public class Ticket 
     {
         /// <summary>
         /// Constructs a new Ticket
@@ -83,5 +85,24 @@ namespace OsTicket.API
         /// The list of extra fields to populate with this ticket. The keys are specified in the OsTicket UI
         /// </summary>
         public Dictionary<string, object> ExtraFields { get; private set; }
+
+    }
+
+    public partial class ListTicket 
+    {
+        [JsonProperty(PropertyName = "id", Required = Required.Always)]
+        public int TicketId { get; set; }
+        [JsonProperty(PropertyName = "subject", Required = Required.Always)]
+        public string Subject { get; set; }
+        [JsonProperty(PropertyName = "created", Required = Required.Always)]
+        public DateTime Created { get; set; } = DateTime.Now;
+        [JsonProperty(PropertyName = "lastupdate", Required = Required.Always)]
+        public DateTime LastUpdate { get; set; } = DateTime.Now;
+        [JsonProperty(PropertyName = "state", Required = Required.Always)]
+        public string State { get; set; } = "open";
+        [JsonProperty(PropertyName = "status", Required = Required.Always)]
+        public string Status { get; set; } = "unknown";
+        [JsonProperty(PropertyName = "tok", Required = Required.Always)]
+        public string Token { get; set; }
     }
 }

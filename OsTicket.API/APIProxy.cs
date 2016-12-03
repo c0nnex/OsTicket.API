@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using RestSharp;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -13,7 +14,7 @@ namespace OsTicket.API
     /// <summary>
     /// The OSTicket API Wrapper 
     /// </summary>
-    public class APIProxy
+    public class APIProxy 
     {
 
         public event EventHandler<RestResponseEventArgs> RequestCompleted;
@@ -68,11 +69,54 @@ namespace OsTicket.API
         }
 
         /// <summary>
+        /// Retrieve a list of of tickets from the OsTicket instance
+        /// </summary>
+        /// <returns>a list of all tickets associated with the user or the orderid</returns>
+        /// <remarks>Requires that the forumtickets.php API extension method be installed on the OsTicket instance</remarks>
+        public RestResponseEventArgs GetTickets(Dictionary<string, string> parameters = null)
+        {
+            RestClient client = new RestClient(OsTicketUrl);
+
+            IRestRequest request = new RestRequest("/api/forumtickets.php", Method.POST);
+            request.AddHeader("X-API-KEY", ApiKey);
+            if (parameters != null)
+            {
+                foreach (var item in parameters)
+                {
+                    request.AddParameter(item.Key, item.Value);
+                }
+            }
+
+            IRestResponse response = client.Execute(request);
+            return new RestResponseEventArgs(response);
+        }
+
+        public RestRequestAsyncHandle GetTicketsAsync(Dictionary<string,string> parameters = null)
+        {
+            RestClient client = new RestClient(OsTicketUrl);
+
+            IRestRequest request = new RestRequest("/api/forumtickets.php", Method.POST);
+            request.AddHeader("X-API-KEY", ApiKey);
+            if (parameters != null)
+            {
+                foreach (var item in parameters)
+                {
+                    request.AddParameter(item.Key, item.Value);
+                }
+            }
+                
+            Action<IRestResponse> action = (restresponse) => { RequestCompleted?.Invoke(this, new RestResponseEventArgs(restresponse)); };
+
+            return client.ExecuteAsync(request, action);
+        }
+
+
+        /// <summary>
         /// Submits a ticket to the OsTicket instance.
         /// </summary>
         /// <param name="ticket">The Ticket to Submit</param>
         /// <returns>The generated ticket id.</returns>
-        public int SubmitTicket(Ticket ticket)
+        public RestResponseEventArgs SubmitTicket(Ticket ticket)
         {
             RestClient client = new RestClient(OsTicketUrl);
 
@@ -89,17 +133,10 @@ namespace OsTicket.API
             }
 
             request.AddBody(jo);
-
+           
             IRestResponse response = client.Execute(request);
-
-            if (response.StatusCode == HttpStatusCode.Created)
-            {
-                return int.Parse(response.Content);
-            }
-            else
-            {
-                throw new Exception(response.Content);
-            }
+            return new RestResponseEventArgs(response);
+            
         }
 
         /// <summary>
@@ -153,9 +190,11 @@ namespace OsTicket.API
     public sealed class RestResponseEventArgs : EventArgs
     {
         public IRestResponse RestResponse { get; } = null;
+        public List<ListTicket> Tickets { get; } = null;
         public int TicketNumber { get; } = -1;
         public bool HasError { get; } = false;
         public string ErrorMessage { get; }
+
         public RestResponseEventArgs()
         {
 
@@ -163,16 +202,21 @@ namespace OsTicket.API
         public RestResponseEventArgs(IRestResponse value)
         {
             RestResponse = value;
-            if (RestResponse.StatusCode == HttpStatusCode.Created)
+            switch (RestResponse.StatusCode)
             {
-                HasError = false;
-                TicketNumber = int.Parse(RestResponse.Content);
+                case HttpStatusCode.OK:
+                    var tk = JsonConvert.DeserializeObject<List<ListTicket>>(RestResponse.Content);
+                    Tickets = tk;
+                    break;
+                case HttpStatusCode.Created:
+                    TicketNumber = int.Parse(RestResponse.Content);
+                    break;
+                default:
+                    HasError = true;
+                    ErrorMessage = $"{RestResponse.StatusCode} : {RestResponse.StatusDescription}";
+                    break;
             }
-            else
-            {
-                HasError = true;
-                ErrorMessage = RestResponse.Content;
-            }
+           
         }
     }
 }
